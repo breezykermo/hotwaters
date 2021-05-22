@@ -29,6 +29,9 @@ def gs(): return bpy.context.selected_objects[0]
 def get_object(name): return bpy.context.scene.objects.get(name)
 def select_object(o): o.select_set(True)
 def get_lat_from_port(port): return port[0]
+def set_hide(obj, vl):
+    obj.hide_viewport = vl
+    obj.hide_render = vl
 
 w = 1 # weight
 START_PORT = port_map['El Aaiun']
@@ -39,6 +42,13 @@ LENGTH_OF_ANIMATION_IN_FRAMES = 250
 DATE_ARRAY = [START_DATE+timedelta(days=x) for x in range((END_DATE-START_DATE).days)]
 FIRST_FRAME = 1
 LAST_FRAME = len(DATE_ARRAY)
+WHITE_MAT = bpy.data.materials.get("White")
+
+def assign_material(mat, ob):
+    if ob.data.materials:
+        ob.data.materials[0] = mat
+    else:
+        ob.data.materials.append(mat)
 
 def create_cylinder():
     bpy.ops.mesh.primitive_cylinder_add(radius=0.1, depth=2, enter_editmode=False, align='WORLD', location=(0,0,0), scale=(1, 1, 1))
@@ -72,13 +82,18 @@ def get_keyframe_no(date):
     value = min(DATE_ARRAY, key=lambda d: abs(d - date))
     return DATE_ARRAY.index(value) * 2.5
 
-def create_text(name, location, scale=(2,2,2)):
+def create_text(name, location, scale=(2,2,2), hidden=False):
     bpy.data.curves.new(type="FONT",name=name).body = name
     font_obj = bpy.data.objects.new("Font Object", bpy.data.curves[name])
     bpy.context.scene.collection.objects.link(font_obj)
     font_obj.name = name
     font_obj.location = location
     font_obj.scale = scale
+    if hidden:
+        set_hide(font_obj, True)
+        font_obj.keyframe_insert(data_path="hide_viewport", frame=FIRST_FRAME)
+        font_obj.keyframe_insert(data_path="hide_render", frame=FIRST_FRAME)
+
     return font_obj
 
 def ship_tmpl_from_lat(lat):
@@ -91,36 +106,27 @@ def get_port_template(port):
     lat = get_lat_from_port(port)
     return ship_tmpl_from_lat(lat)
 
-def set_sail(ship):
-    anim_start = get_keyframe_no(ship['Departure'])
-    anim_end = get_keyframe_no(ship['Arrival'])
-
-    # start keyframes
-    new_ship = create_text(ship['Name'], get_port_template(START_PORT).location, scale=(1,1,1))
-    start_location = get_port_template(START_PORT).location
-    if anim_start > 0:
-        new_ship.keyframe_insert(data_path="hide_viewport", frame=(anim_start))
-        new_ship.keyframe_insert(data_path='location', frame=(anim_start))
-    else:
-        # NOTE: should always have a departure
-        import pdb; pdb.set_trace()
-
-    # end keyframes
-    if anim_end < 0:
-        # Cherry blossom
-        end_location = Vector((0,0,0))
-        new_ship.location = end_location
-        new_ship.keyframe_insert(data_path="location", frame=anim_start + 200)
-    else:
-        new_ship.hide_viewport = True
-        end_location = get_port_template(ship['ports'][0]).location
-        new_ship.location = end_location
-        new_ship.keyframe_insert(data_path="hide_viewport", frame=anim_end)
-        new_ship.keyframe_insert(data_path="location", frame=anim_end)
-
-    # hide to begin with
-    new_ship.hide_viewport = True
-    new_ship.keyframe_insert(data_path="hide_viewport", frame=FIRST_FRAME)
+def animate_curve_attempt_1(start_location, end_location, anim_start, anim_end):
+    ops.curve.primitive_nurbs_path_add(enter_editmode=True, align='WORLD')
+    ops.curve.subdivide(number_cuts=1)
+    ops.object.mode_set(mode='OBJECT')
+    curve = context.active_object
+    points = curve.data.splines[0].points
+    fst = points[0]
+    lst = points[len(points)-1]
+    # TODO: work out how to remove middle verts...
+    fst.co = Vector((start_location.x, start_location.y, start_location.z, 0))
+    lst.co = Vector((end_location.x, end_location.y, end_location.z, 0))
+    curve.hide_viewport = True
+    curve.hide_render= True
+    fst.keyframe_insert(data_path='co', frame=FIRST_FRAME)
+    fst.keyframe_insert(data_path='co', frame=anim_end)
+    lst.keyframe_insert(data_path='co', frame=FIRST_FRAME)
+    lst.keyframe_insert(data_path='co', frame=anim_end)
+    curve.keyframe_insert(data_path='hide_viewport', frame=FIRST_FRAME)
+    curve.keyframe_insert(data_path='hide_viewport', frame=anim_end)
+    curve.keyframe_insert(data_path='hide_render', frame=FIRST_FRAME)
+    curve.keyframe_insert(data_path='hide_render', frame=anim_end)
 
     # line extending
     # line_name = ship["Name"] + "_line"
@@ -128,30 +134,44 @@ def set_sail(ship):
     # polyline = make_polyline(line_name, curve_name, [start_location, start_location])
     # bevel_polyline(line_name, "A_TemplateBezier")
 
-    if False:
-        ops.curve.primitive_nurbs_path_add(enter_editmode=True, align='WORLD')
-        ops.curve.subdivide(number_cuts=1)
-        ops.object.mode_set(mode='OBJECT')
-        curve = context.active_object
-        points = curve.data.splines[0].points
-        fst = points[0]
-        lst = points[len(points)-1]
-        # TODO: work out how to remove middle verts...
-        fst.co = Vector((start_location.x, start_location.y, start_location.z, 0))
-        lst.co = Vector((end_location.x, end_location.y, end_location.z, 0))
-        curve.hide_viewport = True
-        fst.keyframe_insert(data_path='co', frame=FIRST_FRAME)
-        fst.keyframe_insert(data_path='co', frame=anim_end)
-        lst.keyframe_insert(data_path='co', frame=FIRST_FRAME)
-        lst.keyframe_insert(data_path='co', frame=anim_end)
-        curve.keyframe_insert(data_path='hide_viewport', frame=FIRST_FRAME)
-        curve.keyframe_insert(data_path='hide_viewport', frame=anim_end)
+    curve.hide_viewport = False
+    curve.hide_render= False
+    lst.co = start_location.xyzz
+    curve.keyframe_insert(data_path='hide_viewport', frame=anim_start)
+    curve.keyframe_insert(data_path='hide_render', frame=anim_start)
+    fst.keyframe_insert(data_path='co', frame=anim_start)
+    lst.keyframe_insert(data_path='co', frame=anim_start)
 
-        curve.hide_viewport = False
-        lst.co = start_location.xyzz
-        curve.keyframe_insert(data_path='hide_viewport', frame=anim_start)
-        fst.keyframe_insert(data_path='co', frame=anim_start)
-        lst.keyframe_insert(data_path='co', frame=anim_start)
+def animate_ship_attempt_1(new_ship, start_location, end_location, anim_start, anim_end):
+    set_hide(new_ship, False)
+    new_ship.keyframe_insert(data_path="hide_viewport", frame=(anim_start))
+    new_ship.keyframe_insert(data_path="hide_render", frame=(anim_start))
+    new_ship.keyframe_insert(data_path='location', frame=(anim_start))
+
+    set_hide(new_ship, True)
+    new_ship.location = end_location
+    new_ship.keyframe_insert(data_path="hide_viewport", frame=anim_end)
+    new_ship.keyframe_insert(data_path="hide_render", frame=anim_end)
+    new_ship.keyframe_insert(data_path="location", frame=anim_end)
+
+def animate_ship_with_trail(ship, start_location, end_location, anim_start, anim_end):
+    print(ship)
+
+
+def set_sail(ship):
+    anim_start = get_keyframe_no(ship['Departure'])
+    anim_end = get_keyframe_no(ship['Arrival'])
+    anim_end = anim_start + 200 if anim_end < 0 else anim_end
+    start_location = get_port_template(START_PORT).location
+    end_location = Vector((0,0,0)) if anim_end < 0 else get_port_template(ship['ports'][0]).location
+
+    new_ship = create_text(ship['Name'], start_location, scale=(1,1,1), hidden=True)
+    assign_material(WHITE_MAT, new_ship)
+
+    # animate_ship_attempt_1(new_ship, start_location, end_location, anim_start, anim_end)
+    # animate_curve_attempt_1(start_location, end_location, anim_start, anim_end)
+
+    animate_ship_with_trail(new_ship, start_location, end_location, anim_start, anim_end)
 
 def add_port_name(port):
     loc = ship_tmpl_from_lat(port['Latitude']).location.copy()
