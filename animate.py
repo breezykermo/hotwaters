@@ -67,10 +67,10 @@ def bevel_polyline(objname, bevel_objname):
     line.data.bevel_mode = 'OBJECT'
     line.data.bevel_object = bpy.data.objects[bevel_objname]
 
-def get_closest_date_idx(date):
+def get_keyframe_no(date):
     if date is None: return -1
     value = min(DATE_ARRAY, key=lambda d: abs(d - date))
-    return DATE_ARRAY.index(value)
+    return DATE_ARRAY.index(value) * 2.5
 
 def create_text(name, location, scale=(2,2,2)):
     bpy.data.curves.new(type="FONT",name=name).body = name
@@ -92,24 +92,34 @@ def get_port_template(port):
     return ship_tmpl_from_lat(lat)
 
 def set_sail(ship):
-    anim_start = get_closest_date_idx(ship['Departure'])
-    anim_end = get_closest_date_idx(ship['Arrival'])
+    anim_start = get_keyframe_no(ship['Departure'])
+    anim_end = get_keyframe_no(ship['Arrival'])
 
     # start keyframes
-    new_ship = create_text(ship['Name'], get_port_template(START_PORT).location)
+    new_ship = create_text(ship['Name'], get_port_template(START_PORT).location, scale=(1,1,1))
     start_location = get_port_template(START_PORT).location
     if anim_start > 0:
         new_ship.keyframe_insert(data_path="hide_viewport", frame=(anim_start))
         new_ship.keyframe_insert(data_path='location', frame=(anim_start))
+    else:
+        # NOTE: should always have a departure
+        import pdb; pdb.set_trace()
 
     # end keyframes
-    new_ship.hide_viewport = True
-    end_location = get_port_template(ship['ports'][0]).location
-    new_ship.location = end_location
-    new_ship.keyframe_insert(data_path="hide_viewport", frame=anim_end)
-    new_ship.keyframe_insert(data_path="location", frame=anim_end)
+    if anim_end < 0:
+        # Cherry blossom
+        end_location = Vector((0,0,0))
+        new_ship.location = end_location
+        new_ship.keyframe_insert(data_path="location", frame=anim_start + 200)
+    else:
+        new_ship.hide_viewport = True
+        end_location = get_port_template(ship['ports'][0]).location
+        new_ship.location = end_location
+        new_ship.keyframe_insert(data_path="hide_viewport", frame=anim_end)
+        new_ship.keyframe_insert(data_path="location", frame=anim_end)
 
     # hide to begin with
+    new_ship.hide_viewport = True
     new_ship.keyframe_insert(data_path="hide_viewport", frame=FIRST_FRAME)
 
     # line extending
@@ -165,7 +175,7 @@ def animate_ships():
         if ship['Arrival'] is not None:
             ship['Arrival'] = datetime.strptime(ship['Arrival'], '%Y-%m-%dT%H:%M:%S.000Z')
 
-        # set_sail(ship)
+        set_sail(ship)
 
 animate_ships()
 
