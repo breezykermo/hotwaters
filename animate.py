@@ -38,6 +38,8 @@ def make_polyline(objname, curvename, cList):
         x, y, z = cList[num]
         polyline.points[num].co = (x, y, z, w)
 
+    return polyline
+
 START_PORT = port_map['El Aaiun']
 START_DATE = datetime.strptime('2011-01-01T12:00:00.000Z', '%Y-%m-%dT%H:%M:%S.000Z')
 END_DATE = datetime.strptime('2020-01-01T12:00:00.000Z', '%Y-%m-%dT%H:%M:%S.000Z')
@@ -91,7 +93,16 @@ def set_sail(ship):
     new_ship.keyframe_insert(data_path="hide_viewport", frame=FIRST_FRAME)
 
     # line extending
-    make_polyline(ship["Name"] + "_line", ship["Name"] + "_curve", [start_location, end_location])
+    line_name = ship["Name"] + "_line"
+    curve_name = ship["Name"] + "_curve"
+    make_polyline(line_name, curve_name, [start_location, end_location])
+    line = get_object(line_name)
+
+    # extrude along line
+    line.data.bevel_mode = 'OBJECT'
+    line.data.bevel_object = bpy.data.objects["A_TemplateBezier"]
+
+
 
 def create_cylinder():
     bpy.ops.mesh.primitive_cylinder_add(radius=0.1, depth=2, enter_editmode=False, align='WORLD', location=(0,0,0), scale=(1, 1, 1))
@@ -109,6 +120,7 @@ def animate_ships():
             ship['Arrival'] = datetime.strptime(ship['Arrival'], '%Y-%m-%dT%H:%M:%S.000Z')
 
         set_sail(ship)
+        return
 
 animate_ships()
 
