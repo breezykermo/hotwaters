@@ -10,7 +10,16 @@ with open(SCRIPTS_PATH + "ships.json", "r") as f:
     SHIPS = json.load(f)
 
 with open(SCRIPTS_PATH + "ports.json", "r") as f:
+    print("PORT")
     PORTS = json.load(f)
+
+def warp(port):
+    if port["Name"] == "Napier":
+        port["Latitude"] = port["Latitude"] - 60.5
+    if port["Name"] == "El Aaiun":
+        port["Latitude"] = port["Latitude"] + 10
+    return port
+PORTS = [warp(x) for x in PORTS]
 
 port_map = {}
 for port in PORTS:
@@ -68,13 +77,12 @@ def create_text(name, location, scale=(2,2,2)):
     font_obj = bpy.data.objects.new("Font Object", bpy.data.curves[name])
     bpy.context.scene.collection.objects.link(font_obj)
     font_obj.name = name
-    print(location)
     font_obj.location = location
     font_obj.scale = scale
     return font_obj
 
 def ship_tmpl_from_lat(lat):
-    dg = int((lat + 90.0) * 2) + 120
+    dg = int((lat + 90.0) * 6) - 70
     dg = str(dg % 360).zfill(3)
     tmpl = get_object('Ship.' + dg)
     return tmpl
@@ -137,9 +145,12 @@ def set_sail(ship):
 
 def add_port_name(port):
     loc = ship_tmpl_from_lat(port['Latitude']).location.copy()
-    loc.y = loc.y - 1
+    loc.y = loc.y - 1.5
     if (port["Name"] == "El Aaiun"):
-        loc.x = loc.x - 5
+        loc.x = loc.x - 2.5
+    if (port["Name"] == "Whangarei /Northport"):
+        loc.y = loc.y - 1
+
     create_text(port["Name"], loc, scale=(0.8,0.8,0.8))
 
 def animate_ships():
