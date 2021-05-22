@@ -19,6 +19,25 @@ def get_object(name): return bpy.context.scene.objects.get(name)
 def select_object(o): o.select_set(True)
 def get_lat_from_port(port): return port[0]
 
+import bpy
+from mathutils import Vector
+
+w = 1 # weight
+
+def make_polyline(objname, curvename, cList):
+    curvedata = bpy.data.curves.new(name=curvename, type='CURVE')
+    curvedata.dimensions = '3D'
+
+    objectdata = bpy.data.objects.new(objname, curvedata)
+    objectdata.location = (0,0,0) #object origin
+    bpy.context.scene.collection.objects.link(objectdata)
+
+    polyline = curvedata.splines.new('POLY')
+    polyline.points.add(len(cList)-1)
+    for num in range(len(cList)):
+        x, y, z = cList[num]
+        polyline.points[num].co = (x, y, z, w)
+
 START_PORT = port_map['El Aaiun']
 START_DATE = datetime.strptime('2011-01-01T12:00:00.000Z', '%Y-%m-%dT%H:%M:%S.000Z')
 END_DATE = datetime.strptime('2020-01-01T12:00:00.000Z', '%Y-%m-%dT%H:%M:%S.000Z')
@@ -40,39 +59,57 @@ def create_ship(name):
     bpy.context.scene.collection.objects.link(font_obj)
     font_obj.name = name
     font_obj.location = location
-    font_obj.scale = (0.2, 0.2, 0.2)
+    font_obj.scale = (2, 2, 2)
     return font_obj
 
 def get_port_template(port):
     lat = get_lat_from_port(port)
-    dg = int((lat + 90.0) * 2) + 160
+    dg = int((lat + 90.0) * 2) + 120
     dg = str(dg % 360).zfill(3)
     tmpl = get_object('Ship.' + dg)
     return tmpl
 
-for ship in SHIPS:
-    ship['ports'] = [port_map[x] for x in ship['Port Destination s']]
-
-    if ship['Departure'] is not None:
-        ship['Departure'] = datetime.strptime(ship['Departure'], '%Y-%m-%dT%H:%M:%S.000Z')
-    if ship['Arrival'] is not None:
-        ship['Arrival'] = datetime.strptime(ship['Arrival'], '%Y-%m-%dT%H:%M:%S.000Z')
-
+def set_sail(ship):
     anim_start = get_closest_date_idx(ship['Departure'])
     anim_end = get_closest_date_idx(ship['Arrival'])
 
     # start keyframes
     new_ship = create_ship(ship['Name'])
+    start_location = get_port_template(START_PORT).location
     if anim_start > 0:
         new_ship.keyframe_insert(data_path="hide_viewport", frame=(anim_start))
         new_ship.keyframe_insert(data_path='location', frame=(anim_start))
 
     # end keyframes
     new_ship.hide_viewport = True
-    new_ship.location = get_port_template(ship['ports'][0]).location
+    end_location = get_port_template(ship['ports'][0]).location
+    new_ship.location = end_location
     new_ship.keyframe_insert(data_path="hide_viewport", frame=anim_end)
     new_ship.keyframe_insert(data_path="location", frame=anim_end)
 
     # hide to begin with
     new_ship.keyframe_insert(data_path="hide_viewport", frame=FIRST_FRAME)
+
+    # line extending
+    make_polyline(ship["Name"] + "_line", ship["Name"] + "_curve", [start_location, end_location])
+
+def create_cylinder():
+    bpy.ops.mesh.primitive_cylinder_add(radius=0.1, depth=2, enter_editmode=False, align='WORLD', location=(0,0,0), scale=(1, 1, 1))
+    c = gs()
+    c.rotation_euler[0] = 1.5708
+    bpy.ops.object.editmode_toggle()
+
+def animate_ships():
+    for ship in SHIPS:
+        ship['ports'] = [port_map[x] for x in ship['Port Destination s']]
+
+        if ship['Departure'] is not None:
+            ship['Departure'] = datetime.strptime(ship['Departure'], '%Y-%m-%dT%H:%M:%S.000Z')
+        if ship['Arrival'] is not None:
+            ship['Arrival'] = datetime.strptime(ship['Arrival'], '%Y-%m-%dT%H:%M:%S.000Z')
+
+        set_sail(ship)
+
+animate_ships()
+
 
