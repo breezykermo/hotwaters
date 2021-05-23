@@ -220,10 +220,6 @@ def animate_ship_with_trail(ship, start_location, end_location, anim_start, anim
     trail_curve.keyframe_insert(data_path='hide_viewport', frame=(anim_end))
     trail_curve.keyframe_insert(data_path='hide_render', frame=(anim_end))
 
-
-
-
-
 def set_sail(ship):
     anim_start = get_keyframe_no(ship['Departure'])
     anim_end = get_keyframe_no(ship['Arrival'])
@@ -264,6 +260,18 @@ def animate_ships():
 
         set_sail(ship)
 
-animate_ships()
+def animate_clock():
+    # setup anim curve
+    ops.curve.primitive_bezier_circle_add(enter_editmode=True)
+    ops.curve.subdivide(number_cuts=((360 // 4) - 1))
+    anim_curve = context.active_object
+    bez_points = anim_curve.data.splines[0].bezier_points
+    for i in range(0, len(bez_points), 1):
+        pt = bez_points[i]
+        pt.co = get_object(f"Ship.{str(i+1).zfill(3)}").location
+    ops.object.mode_set(mode='OBJECT')
 
+
+# animate_ships()
+animate_clock()
 
