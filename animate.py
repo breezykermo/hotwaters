@@ -3,6 +3,7 @@ import json
 from datetime import datetime, timedelta
 from bpy import context, data, ops
 from mathutils import Vector
+from random import randint
 
 SCRIPTS_PATH = "/home/lachie/Dropbox (Brown)/blender/blender-scripts/"
 
@@ -10,7 +11,6 @@ with open(SCRIPTS_PATH + "ships.json", "r") as f:
     SHIPS = json.load(f)
 
 with open(SCRIPTS_PATH + "ports.json", "r") as f:
-    print("PORT")
     PORTS = json.load(f)
 
 def warp(port):
@@ -154,8 +154,74 @@ def animate_ship_attempt_1(new_ship, start_location, end_location, anim_start, a
     new_ship.keyframe_insert(data_path="hide_render", frame=anim_end)
     new_ship.keyframe_insert(data_path="location", frame=anim_end)
 
+def create_trail(start_location, end_location):
+    ops.curve.primitive_bezier_curve_add(enter_editmode=True, align='WORLD')
+    curve = context.active_object
+    curve.data.resolution_u = 60
+    bez_points = curve.data.splines[0].bezier_points
+
+    for bez_point in bez_points:
+        bez_point.handle_left_type = 'FREE'
+        bez_point.handle_right_type = 'FREE'
+
+    start_pt = bez_points[0]
+    start_pt.co = start_location
+    start_pt.handle_left = Vector((start_pt.co.x, start_pt.co.y + 5, start_pt.co.z))
+    start_pt.handle_right = Vector((start_pt.co.x + randint(-2, 2), start_pt.co.y - 3, start_pt.co.z))
+
+    end_pt = bez_points[1]
+    end_pt.co = end_location
+    end_pt.handle_left = Vector((end_pt.co.x + randint(-2, 2), end_pt.co.y - (3 + randint(1,8)), end_pt.co.z))
+    end_pt.handle_right = Vector((end_pt.co.x, end_pt.co.y + 5, end_pt.co.z))
+    ops.object.mode_set(mode='OBJECT')
+    return curve
+
 def animate_ship_with_trail(ship, start_location, end_location, anim_start, anim_end):
-    print(ship)
+    trail_curve = create_trail(start_location, end_location)
+
+    # animate ship along path
+    ship.location = (0.0, 0.0, 0.0)
+    follow_path = ship.constraints.new(type='FOLLOW_PATH')
+    follow_path.target = trail_curve
+    follow_path.forward_axis = 'TRACK_NEGATIVE_Z'
+    follow_path.up_axis = 'UP_Y'
+    follow_path.use_fixed_location = True
+
+    follow_path.offset_factor = 0.0
+    set_hide(ship, False)
+    ship.keyframe_insert(data_path="hide_viewport", frame=(anim_start))
+    ship.keyframe_insert(data_path="hide_render", frame=(anim_start))
+    ship.keyframe_insert(data_path="location", frame=(anim_start))
+    follow_path.keyframe_insert(data_path='offset_factor', frame=(anim_start))
+
+    follow_path.offset_factor = 1.0
+    set_hide(ship, True)
+    ship.keyframe_insert(data_path="hide_viewport", frame=(anim_end))
+    ship.keyframe_insert(data_path="hide_render", frame=(anim_end))
+    follow_path.keyframe_insert(data_path='offset_factor', frame=(anim_end))
+
+    # animate bevel factor along path
+    ops.curve.primitive_bezier_circle_add(location=(0.0, 0.0, 0.0), rotation=(0.0, 0.0, 0.0))
+    tube = get_object('ReferenceTube')
+    trail_curve.data.bevel_mode = 'OBJECT'
+    trail_curve.data.bevel_object = tube
+
+    set_hide(trail_curve, True)
+    trail_curve.keyframe_insert(data_path='hide_viewport', frame=(FIRST_FRAME))
+    trail_curve.keyframe_insert(data_path='hide_render', frame=(FIRST_FRAME))
+    trail_curve.data.bevel_factor_end = 0.0
+    set_hide(trail_curve, False)
+    trail_curve.data.keyframe_insert(data_path='bevel_factor_end', frame=(anim_start))
+    trail_curve.keyframe_insert(data_path='hide_viewport', frame=(anim_start))
+    trail_curve.keyframe_insert(data_path='hide_render', frame=(anim_start))
+    trail_curve.data.bevel_factor_end= 1.0
+    set_hide(trail_curve, True)
+    trail_curve.data.keyframe_insert(data_path='bevel_factor_end', frame=(anim_end))
+    trail_curve.keyframe_insert(data_path='hide_viewport', frame=(anim_end))
+    trail_curve.keyframe_insert(data_path='hide_render', frame=(anim_end))
+
+
+
 
 
 def set_sail(ship):
@@ -171,6 +237,7 @@ def set_sail(ship):
     # animate_ship_attempt_1(new_ship, start_location, end_location, anim_start, anim_end)
     # animate_curve_attempt_1(start_location, end_location, anim_start, anim_end)
 
+    context.scene.frame_set(FIRST_FRAME)
     animate_ship_with_trail(new_ship, start_location, end_location, anim_start, anim_end)
 
 def add_port_name(port):
