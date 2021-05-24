@@ -44,6 +44,7 @@ DATE_ARRAY = [START_DATE+timedelta(days=x) for x in range((END_DATE-START_DATE).
 FIRST_FRAME = 1
 LAST_FRAME = 9500
 WHITE_MAT = bpy.data.materials.get("White")
+FRAGMENTS_MAT = bpy.data.materials.get("Fragments")
 
 def assign_material(mat, ob):
     if ob.data.materials:
@@ -102,6 +103,7 @@ def create_text(name, location, scale=(2,2,2), hidden=False):
         font_obj.keyframe_insert(data_path="hide_viewport", frame=FIRST_FRAME)
         font_obj.keyframe_insert(data_path="hide_render", frame=FIRST_FRAME)
 
+    assign_material(WHITE_MAT, font_obj)
     return font_obj
 
 def ship_tmpl_from_lat(lat):
@@ -186,6 +188,7 @@ def create_trail(start_location, end_location):
 
 def animate_ship_with_trail(ship, start_location, end_location, anim_start, anim_end):
     trail_curve = create_trail(start_location, end_location)
+    assign_material(FRAGMENTS_MAT, trail_curve)
 
     # animate ship along path
     ship.location = (0.0, 0.0, 0.0)
@@ -209,7 +212,7 @@ def animate_ship_with_trail(ship, start_location, end_location, anim_start, anim
     follow_path.keyframe_insert(data_path='offset_factor', frame=(anim_end))
 
     # animate bevel factor along path
-    ops.curve.primitive_bezier_circle_add(location=(0.0, 0.0, 0.0), rotation=(0.0, 0.0, 0.0))
+    # ops.curve.primitive_bezier_circle_add(location=(0.0, 0.0, 0.0), rotation=(0.0, 0.0, 0.0))
     tube = get_object('ReferenceTube')
     trail_curve.data.bevel_mode = 'OBJECT'
     trail_curve.data.bevel_object = tube
@@ -271,10 +274,6 @@ def animate_ships():
         set_sail(ship)
 
 def animate_clock():
-    # center point
-    # ops.object.empty_add(type='PLAIN_AXES', location=(0.0,0.0,0.0))
-    # center_point = context.active_object
-
     # setup anim curve
     ops.curve.primitive_bezier_circle_add(enter_editmode=True)
     ops.curve.subdivide(number_cuts=((360 // 4) - 1))
@@ -294,18 +293,26 @@ def animate_clock():
     follow_path.forward_axis = 'TRACK_NEGATIVE_Z'
     follow_path.up_axis = 'UP_Y'
     follow_path.use_fixed_location = True
-    # follow_path.use_curve_follow = True
-
-    # tracking constraint
-    # look_at = panel.constraints.new(type='TRACK_TO')
-    # look_at.target = center_point
-    # look_at.track_axis = 'TRACK_NEGATIVE_Z'
-    # look_at.up_axis = 'UP_Y'
 
     follow_path.offset_factor = 0.0
     follow_path.keyframe_insert(data_path='offset_factor', frame=(FIRST_FRAME))
     follow_path.offset_factor = 1.0
     follow_path.keyframe_insert(data_path='offset_factor', frame=(LAST_FRAME))
+
+    # duplicate as line
+    # clock_line = anim_curve.copy()
+    # clock_line.data = anim_curve.data.copy()
+    # context.scene.collection.objects.link(clock_line)
+    # clock_line.name = 'ClockLoopLine'
+    # tube = get_object('ReferenceTube')
+    # clock_line.data.bevel_mode = 'OBJECT'
+    # clock_line.data.bevel_object = tube
+    # clock_line.data.bevel_factor_end= 1.0
+    # clock_line.data.resolution_u = 500
+    # clock_line.scale = (0.72, 0.72, 0.72)
+    # assign_material(WHITE_MAT, clock_line)
+
+
 
 def update_clock(self):
     frame = bpy.context.scene.frame_current
