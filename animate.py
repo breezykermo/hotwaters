@@ -3,9 +3,10 @@ import json
 from datetime import datetime, timedelta
 from bpy import context, data, ops
 from mathutils import Vector
+from math import floor
 from random import randint
 
-SCRIPTS_PATH = "/home/lachie/Dropbox (Brown)/blender/blender-scripts/"
+SCRIPTS_PATH = "/Users/lachlankermode/code/uoa/blender-scripts/"
 
 with open(SCRIPTS_PATH + "ships.json", "r") as f:
     SHIPS = json.load(f)
@@ -41,7 +42,7 @@ LENGTH_OF_ANIMATION_IN_FRAMES = 250
 
 DATE_ARRAY = [START_DATE+timedelta(days=x) for x in range((END_DATE-START_DATE).days)]
 FIRST_FRAME = 1
-LAST_FRAME = len(DATE_ARRAY)
+LAST_FRAME = 9500
 WHITE_MAT = bpy.data.materials.get("White")
 
 def assign_material(mat, ob):
@@ -81,6 +82,13 @@ def get_keyframe_no(date):
     if date is None: return -1
     value = min(DATE_ARRAY, key=lambda d: abs(d - date))
     return DATE_ARRAY.index(value) * 2.5
+
+def get_date_from_keyframe(frame):
+    distance_along = frame / LAST_FRAME
+    print(distance_along)
+    nearest_idx = floor(len(DATE_ARRAY) * distance_along)
+    print(nearest_idx)
+    return DATE_ARRAY[nearest_idx].strftime("%b %Y")
 
 def create_text(name, location, scale=(2,2,2), hidden=False):
     bpy.data.curves.new(type="FONT",name=name).body = name
@@ -211,14 +219,16 @@ def animate_ship_with_trail(ship, start_location, end_location, anim_start, anim
     trail_curve.keyframe_insert(data_path='hide_render', frame=(FIRST_FRAME))
     trail_curve.data.bevel_factor_end = 0.0
     set_hide(trail_curve, False)
-    trail_curve.data.keyframe_insert(data_path='bevel_factor_end', frame=(anim_start))
+    b1_kf = trail_curve.data.keyframe_insert(data_path='bevel_factor_end', frame=(anim_start))
     trail_curve.keyframe_insert(data_path='hide_viewport', frame=(anim_start))
     trail_curve.keyframe_insert(data_path='hide_render', frame=(anim_start))
     trail_curve.data.bevel_factor_end= 1.0
     set_hide(trail_curve, True)
-    trail_curve.data.keyframe_insert(data_path='bevel_factor_end', frame=(anim_end))
+    b2_kf = trail_curve.data.keyframe_insert(data_path='bevel_factor_end', frame=(anim_end))
     trail_curve.keyframe_insert(data_path='hide_viewport', frame=(anim_end))
     trail_curve.keyframe_insert(data_path='hide_render', frame=(anim_end))
+
+    # TODO: change the trail_curve bevel_factor_end keyframes to linear to match up
 
 def set_sail(ship):
     anim_start = get_keyframe_no(ship['Departure'])
@@ -261,17 +271,50 @@ def animate_ships():
         set_sail(ship)
 
 def animate_clock():
+    # center point
+    # ops.object.empty_add(type='PLAIN_AXES', location=(0.0,0.0,0.0))
+    # center_point = context.active_object
+
     # setup anim curve
     ops.curve.primitive_bezier_circle_add(enter_editmode=True)
     ops.curve.subdivide(number_cuts=((360 // 4) - 1))
     anim_curve = context.active_object
+    anim_curve.scale = (0.8, 0.8, 0.8)
     bez_points = anim_curve.data.splines[0].bezier_points
     for i in range(0, len(bez_points), 1):
         pt = bez_points[i]
         pt.co = get_object(f"Ship.{str(i+1).zfill(3)}").location
     ops.object.mode_set(mode='OBJECT')
 
+    panel = get_object('ClockPanel_datetext')
 
-# animate_ships()
+    # follow path constraint
+    follow_path = panel.constraints.new(type='FOLLOW_PATH')
+    follow_path.target = anim_curve
+    follow_path.forward_axis = 'TRACK_NEGATIVE_Z'
+    follow_path.up_axis = 'UP_Y'
+    follow_path.use_fixed_location = True
+    # follow_path.use_curve_follow = True
+
+    # tracking constraint
+    # look_at = panel.constraints.new(type='TRACK_TO')
+    # look_at.target = center_point
+    # look_at.track_axis = 'TRACK_NEGATIVE_Z'
+    # look_at.up_axis = 'UP_Y'
+
+    follow_path.offset_factor = 0.0
+    follow_path.keyframe_insert(data_path='offset_factor', frame=(FIRST_FRAME))
+    follow_path.offset_factor = 1.0
+    follow_path.keyframe_insert(data_path='offset_factor', frame=(LAST_FRAME))
+
+def update_clock(self):
+    frame = bpy.context.scene.frame_current
+    datetext = get_object('ClockPanel_datetext')
+    datetext.data.body = get_date_from_keyframe(frame)
+
+bpy.app.handlers.frame_change_post.append(update_clock)
+
+# automate animations
+animate_ships()
 animate_clock()
 
