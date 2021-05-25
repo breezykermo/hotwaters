@@ -15,10 +15,19 @@ with open(SCRIPTS_PATH + "ports.json", "r") as f:
     PORTS = json.load(f)
 
 def warp(port):
+    port["display_name"] = port["Name"]
     if port["Name"] == "Napier":
         port["Latitude"] = port["Latitude"] - 60.5
     if port["Name"] == "El Aaiun":
+        port["display_name"] =  "El Aaiun, Western Sahara"
         port["Latitude"] = port["Latitude"] + 10
+    if port["Name"] == "Taranaki":
+        port["Latitude"] = port["Latitude"] + 2.5
+    if port["Name"] == "Port Elizabeth":
+        port["display_name"] =  "Port Elizabeth, South Africa"
+        port["Latitude"] = port["Latitude"] + 35
+
+
     return port
 PORTS = [warp(x) for x in PORTS]
 
@@ -89,6 +98,8 @@ def get_date_from_keyframe(frame):
     nearest_idx = floor(len(DATE_ARRAY) * distance_along)
     return DATE_ARRAY[nearest_idx].strftime("%b %Y")
 
+UNION_FONT = bpy.data.fonts.load("/home/lachie/Downloads/SB-WEBSITE Folder/Document fonts/union_regular.otf")
+
 def create_text(name, location, scale=(2,2,2), hidden=False):
     bpy.data.curves.new(type="FONT",name=name).body = name
     font_obj = bpy.data.objects.new("Font Object", bpy.data.curves[name])
@@ -96,6 +107,7 @@ def create_text(name, location, scale=(2,2,2), hidden=False):
     font_obj.name = name
     font_obj.location = location
     font_obj.scale = scale
+    font_obj.data.font = UNION_FONT
     if hidden:
         set_hide(font_obj, True)
         font_obj.keyframe_insert(data_path="hide_viewport", frame=FIRST_FRAME)
@@ -162,7 +174,7 @@ def animate_ship_attempt_1(new_ship, start_location, end_location, anim_start, a
     new_ship.keyframe_insert(data_path="hide_render", frame=anim_end)
     new_ship.keyframe_insert(data_path="location", frame=anim_end)
 
-def create_trail(start_location, end_location):
+def create_trail(start_location, end_location, inverse=False):
     ops.curve.primitive_bezier_curve_add(enter_editmode=True, align='WORLD')
     curve = context.active_object
     curve.data.resolution_u = 60
@@ -179,13 +191,13 @@ def create_trail(start_location, end_location):
 
     end_pt = bez_points[1]
     end_pt.co = end_location
-    end_pt.handle_left = Vector((end_pt.co.x + randint(-2, 2), end_pt.co.y - (3 + randint(1,8)), end_pt.co.z))
+    end_pt.handle_left = Vector((end_pt.co.x + randint(-2, 2), end_pt.co.y - ((3 + randint(1,8)) if not inverse else (-3 - randint(1,8))), end_pt.co.z))
     end_pt.handle_right = Vector((end_pt.co.x, end_pt.co.y + 5, end_pt.co.z))
     ops.object.mode_set(mode='OBJECT')
     return curve
 
 def animate_ship_with_trail(ship, start_location, end_location, anim_start, anim_end, should_stall=False):
-    trail_curve = create_trail(start_location, end_location)
+    trail_curve = create_trail(start_location, end_location, inverse=should_stall)
     assign_material(FRAGMENTS_MAT, trail_curve)
 
     # animate ship along path
@@ -246,7 +258,7 @@ def set_sail(ship):
     should_stall = False
 
     if ship['Name'] == 'NM Cherry Blossom':
-        end_location = Vector((end_location.x, end_location.y - 3, end_location.z))
+        end_location = Vector((end_location.x, end_location.y + 2, end_location.z))
         should_stall = True
 
     # animate_ship_attempt_1(new_ship, start_location, end_location, anim_start, anim_end)
@@ -259,11 +271,13 @@ def add_port_name(port):
     loc = ship_tmpl_from_lat(port['Latitude']).location.copy()
     loc.y = loc.y - 1.5
     if (port["Name"] == "El Aaiun"):
-        loc.x = loc.x - 2.5
-    if (port["Name"] == "Whangarei /Northport"):
-        loc.y = loc.y - 1
+        loc.x = loc.x - 7
+    if (port["Name"] == "Whāngarei"):
+        loc.x = loc.x + 2
+    if (port["Name"] == "Port Elizabeth"):
+        loc.y = loc.y - 2.5
 
-    create_text(port["Name"], loc, scale=(0.8,0.8,0.8))
+    create_text(port["display_name"], loc, scale=(0.8,0.8,0.8))
 
 def animate_ships():
     for port in PORTS:
@@ -284,7 +298,7 @@ def animate_clock():
     ops.curve.primitive_bezier_circle_add(enter_editmode=True)
     ops.curve.subdivide(number_cuts=((360 // 4) - 1))
     anim_curve = context.active_object
-    anim_curve.scale = (0.8, 0.8, 0.8)
+    anim_curve.scale = (0.6, 0.6, 0.6)
     bez_points = anim_curve.data.splines[0].bezier_points
     for i in range(0, len(bez_points), 1):
         pt = bez_points[i]
