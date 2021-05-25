@@ -6,7 +6,7 @@ from mathutils import Vector
 from math import floor
 from random import randint
 
-SCRIPTS_PATH = "/Users/lachlankermode/code/uoa/blender-scripts/"
+SCRIPTS_PATH = "/home/lachie/Dropbox (Brown)/blender/blender-scripts/"
 
 with open(SCRIPTS_PATH + "ships.json", "r") as f:
     SHIPS = json.load(f)
@@ -86,9 +86,7 @@ def get_keyframe_no(date):
 
 def get_date_from_keyframe(frame):
     distance_along = frame / LAST_FRAME
-    print(distance_along)
     nearest_idx = floor(len(DATE_ARRAY) * distance_along)
-    print(nearest_idx)
     return DATE_ARRAY[nearest_idx].strftime("%b %Y")
 
 def create_text(name, location, scale=(2,2,2), hidden=False):
@@ -186,7 +184,7 @@ def create_trail(start_location, end_location):
     ops.object.mode_set(mode='OBJECT')
     return curve
 
-def animate_ship_with_trail(ship, start_location, end_location, anim_start, anim_end):
+def animate_ship_with_trail(ship, start_location, end_location, anim_start, anim_end, should_stall=False):
     trail_curve = create_trail(start_location, end_location)
     assign_material(FRAGMENTS_MAT, trail_curve)
 
@@ -207,8 +205,9 @@ def animate_ship_with_trail(ship, start_location, end_location, anim_start, anim
 
     follow_path.offset_factor = 1.0
     set_hide(ship, True)
-    ship.keyframe_insert(data_path="hide_viewport", frame=(anim_end))
-    ship.keyframe_insert(data_path="hide_render", frame=(anim_end))
+    if not should_stall:
+        ship.keyframe_insert(data_path="hide_viewport", frame=(anim_end))
+        ship.keyframe_insert(data_path="hide_render", frame=(anim_end))
     follow_path.keyframe_insert(data_path='offset_factor', frame=(anim_end))
 
     # animate bevel factor along path
@@ -228,26 +227,33 @@ def animate_ship_with_trail(ship, start_location, end_location, anim_start, anim
     trail_curve.data.bevel_factor_end= 1.0
     set_hide(trail_curve, True)
     b2_kf = trail_curve.data.keyframe_insert(data_path='bevel_factor_end', frame=(anim_end))
-    trail_curve.keyframe_insert(data_path='hide_viewport', frame=(anim_end))
-    trail_curve.keyframe_insert(data_path='hide_render', frame=(anim_end))
+    if not should_stall:
+        trail_curve.keyframe_insert(data_path='hide_viewport', frame=(anim_end))
+        trail_curve.keyframe_insert(data_path='hide_render', frame=(anim_end))
 
-    # TODO: change the trail_curve bevel_factor_end keyframes to linear to match up
+    # TODO: work out how to do this
+    # for fc in trail_curve.animation_data.action.fcurves:
+    #     fc.extrapolation = 'LINEAR' # Set extrapolation type
 
 def set_sail(ship):
-    anim_start = get_keyframe_no(ship['Departure'])
-    anim_end = get_keyframe_no(ship['Arrival'])
-    anim_end = anim_start + 200 if anim_end < 0 else anim_end
+    anim_start = floor(get_keyframe_no(ship['Departure']))
+    anim_end = floor(get_keyframe_no(ship['Arrival']))
     start_location = get_port_template(START_PORT).location
     end_location = Vector((0,0,0)) if anim_end < 0 else get_port_template(ship['ports'][0]).location
 
     new_ship = create_text(ship['Name'], start_location, scale=(1,1,1), hidden=True)
     assign_material(WHITE_MAT, new_ship)
+    should_stall = False
+
+    if ship['Name'] == 'NM Cherry Blossom':
+        end_location = Vector((end_location.x, end_location.y - 3, end_location.z))
+        should_stall = True
 
     # animate_ship_attempt_1(new_ship, start_location, end_location, anim_start, anim_end)
     # animate_curve_attempt_1(start_location, end_location, anim_start, anim_end)
 
     context.scene.frame_set(FIRST_FRAME)
-    animate_ship_with_trail(new_ship, start_location, end_location, anim_start, anim_end)
+    animate_ship_with_trail(new_ship, start_location, end_location, anim_start, anim_end, should_stall=should_stall)
 
 def add_port_name(port):
     loc = ship_tmpl_from_lat(port['Latitude']).location.copy()
