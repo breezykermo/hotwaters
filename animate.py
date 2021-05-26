@@ -42,6 +42,11 @@ def set_hide(obj, vl):
     obj.hide_render = vl
 
 w = 1 # weight
+glows = [0, 48, 96, 144]
+white_color = (1.0, 1.0, 1.0, 1.0)
+light_color = (1.0, 1.0, 0.5, 1.0)
+date_color = (0.5, 0.7, 0.7, 1.0)
+
 START_DATE = datetime.strptime('2011-10-01T12:00:00.000Z', '%Y-%m-%dT%H:%M:%S.000Z')
 END_DATE = datetime.strptime('2021-06-01T12:00:00.000Z', '%Y-%m-%dT%H:%M:%S.000Z')
 LENGTH_OF_ANIMATION_IN_FRAMES = 250
@@ -218,9 +223,6 @@ def keyframe_color(mat, vl, frame):
     ei.keyframe_insert(data_path='default_value', frame=frame)
 
 
-glows = [0, 48, 96, 144]
-white_color = (1.0, 1.0, 1.0, 1.0)
-light_color = (1.0, 1.0, 0.5, 1.0)
 
 def light_up_ports(ports, start_frame):
     print("Lighting up " + str(ports) + " at frame " + str(start_frame))
@@ -300,6 +302,10 @@ def animate_clock():
     ops.object.mode_set(mode='OBJECT')
 
     panel = get_object('ClockPanel_datetext')
+    panel.scale = (3,3,3)
+    clock_mat = WHITE_MAT.copy()
+    keyframe_color(clock_mat, date_color, 0)
+    assign_material(clock_mat, panel)
 
     # follow path constraint
     follow_path = panel.constraints.new(type='FOLLOW_PATH')
