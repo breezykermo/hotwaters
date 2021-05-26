@@ -6,7 +6,8 @@ from mathutils import Vector
 from math import floor
 from random import randint
 
-SCRIPTS_PATH = "/home/lachie/Dropbox (Brown)/blender/blender-scripts/"
+SCRIPTS_PATH = "/Users/lachlankermode/Dropbox (Brown)/blender/blender-scripts/"
+FONT_PATH = "/Users/lachlankermode/code/uoa/slowboil.online/assets/union_regular.otf"
 
 with open(SCRIPTS_PATH + "ships.json", "r") as f:
     SHIPS = json.load(f)
@@ -51,7 +52,7 @@ LENGTH_OF_ANIMATION_IN_FRAMES = 250
 
 DATE_ARRAY = [START_DATE+timedelta(days=x) for x in range((END_DATE-START_DATE).days)]
 FIRST_FRAME = 1
-LAST_FRAME = 9500
+TIME_MULTIPLIER = 20
 WHITE_MAT = bpy.data.materials.get("White")
 FRAGMENTS_MAT = bpy.data.materials.get("Fragments")
 
@@ -91,14 +92,16 @@ def bevel_polyline(objname, bevel_objname):
 def get_keyframe_no(date):
     if date is None: return -1
     value = min(DATE_ARRAY, key=lambda d: abs(d - date))
-    return DATE_ARRAY.index(value) * 2.5
+    return DATE_ARRAY.index(value) * TIME_MULTIPLIER
+
+LAST_FRAME = len(DATE_ARRAY) * TIME_MULTIPLIER
 
 def get_date_from_keyframe(frame):
     distance_along = frame / LAST_FRAME
     nearest_idx = floor(len(DATE_ARRAY) * distance_along)
     return DATE_ARRAY[nearest_idx].strftime("%b %Y")
 
-UNION_FONT = bpy.data.fonts.load("/home/lachie/Downloads/SB-WEBSITE Folder/Document fonts/union_regular.otf")
+UNION_FONT = bpy.data.fonts.load(FONT_PATH)
 
 def create_text(name, location, scale=(2,2,2), hidden=False):
     bpy.data.curves.new(type="FONT",name=name).body = name
@@ -125,54 +128,6 @@ def ship_tmpl_from_lat(lat):
 def get_port_template(port):
     lat = get_lat_from_port(port)
     return ship_tmpl_from_lat(lat)
-
-def animate_curve_attempt_1(start_location, end_location, anim_start, anim_end):
-    ops.curve.primitive_nurbs_path_add(enter_editmode=True, align='WORLD')
-    ops.curve.subdivide(number_cuts=1)
-    ops.object.mode_set(mode='OBJECT')
-    curve = context.active_object
-    points = curve.data.splines[0].points
-    fst = points[0]
-    lst = points[len(points)-1]
-    # TODO: work out how to remove middle verts...
-    fst.co = Vector((start_location.x, start_location.y, start_location.z, 0))
-    lst.co = Vector((end_location.x, end_location.y, end_location.z, 0))
-    curve.hide_viewport = True
-    curve.hide_render= True
-    fst.keyframe_insert(data_path='co', frame=FIRST_FRAME)
-    fst.keyframe_insert(data_path='co', frame=anim_end)
-    lst.keyframe_insert(data_path='co', frame=FIRST_FRAME)
-    lst.keyframe_insert(data_path='co', frame=anim_end)
-    curve.keyframe_insert(data_path='hide_viewport', frame=FIRST_FRAME)
-    curve.keyframe_insert(data_path='hide_viewport', frame=anim_end)
-    curve.keyframe_insert(data_path='hide_render', frame=FIRST_FRAME)
-    curve.keyframe_insert(data_path='hide_render', frame=anim_end)
-
-    # line extending
-    # line_name = ship["Name"] + "_line"
-    # curve_name = ship["Name"] + "_curve"
-    # polyline = make_polyline(line_name, curve_name, [start_location, start_location])
-    # bevel_polyline(line_name, "A_TemplateBezier")
-
-    curve.hide_viewport = False
-    curve.hide_render= False
-    lst.co = start_location.xyzz
-    curve.keyframe_insert(data_path='hide_viewport', frame=anim_start)
-    curve.keyframe_insert(data_path='hide_render', frame=anim_start)
-    fst.keyframe_insert(data_path='co', frame=anim_start)
-    lst.keyframe_insert(data_path='co', frame=anim_start)
-
-def animate_ship_attempt_1(new_ship, start_location, end_location, anim_start, anim_end):
-    set_hide(new_ship, False)
-    new_ship.keyframe_insert(data_path="hide_viewport", frame=(anim_start))
-    new_ship.keyframe_insert(data_path="hide_render", frame=(anim_start))
-    new_ship.keyframe_insert(data_path='location', frame=(anim_start))
-
-    set_hide(new_ship, True)
-    new_ship.location = end_location
-    new_ship.keyframe_insert(data_path="hide_viewport", frame=anim_end)
-    new_ship.keyframe_insert(data_path="hide_render", frame=anim_end)
-    new_ship.keyframe_insert(data_path="location", frame=anim_end)
 
 def create_trail(start_location, end_location, inverse=False):
     ops.curve.primitive_bezier_curve_add(enter_editmode=True, align='WORLD')
@@ -223,7 +178,7 @@ def animate_ship_with_trail(ship, start_location, end_location, anim_start, anim
     follow_path.keyframe_insert(data_path='offset_factor', frame=(anim_end))
 
     # animate bevel factor along path
-    # ops.curve.primitive_bezier_circle_add(location=(0.0, 0.0, 0.0), rotation=(0.0, 0.0, 0.0))
+    ops.curve.primitive_bezier_circle_add(location=(0.0, 0.0, 0.0), rotation=(0.0, 0.0, 0.0))
     tube = get_object('ReferenceTube')
     trail_curve.data.bevel_mode = 'OBJECT'
     trail_curve.data.bevel_object = tube
@@ -275,7 +230,7 @@ def add_port_name(port):
     if (port["Name"] == "Whāngarei"):
         loc.x = loc.x + 2
     if (port["Name"] == "Port Elizabeth"):
-        loc.y = loc.y - 2.5
+        loc.y = loc.y + 2.5
 
     create_text(port["display_name"], loc, scale=(0.8,0.8,0.8))
 
