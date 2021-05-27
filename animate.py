@@ -1,7 +1,7 @@
 import bpy
+from bpy import context, data, ops
 import json
 from datetime import datetime, timedelta
-from bpy import context, data, ops
 from mathutils import Vector
 from math import floor
 from random import randint
@@ -59,6 +59,7 @@ FRAGMENTS_MAT = bpy.data.materials.get("Fragments")
 PORTS_VECTORS = {}
 SHIP_MATERIALS = {}
 PORT_MATERIALS = {}
+UNION_FONT = bpy.data.fonts.load(FONT_PATH)
 
 def assign_material(mat, ob):
     if ob.data.materials:
@@ -106,7 +107,6 @@ def get_date_from_keyframe(frame):
     nearest_idx = floor(len(DATE_ARRAY) * distance_along)
     return DATE_ARRAY[nearest_idx].strftime("%b %Y")
 
-UNION_FONT = bpy.data.fonts.load(FONT_PATH)
 
 def create_text(name, location, scale=(2,2,2), hidden=False):
     bpy.data.curves.new(type="FONT",name=name).body = name
@@ -341,7 +341,29 @@ def update_clock(self):
 
 bpy.app.handlers.frame_change_post.append(update_clock)
 
-# automate animations
+automate animations
 animate_ships()
 animate_clock()
+
+
+def get_row(ship):
+    if ship['Departure'] is not None:
+        ship['Departure'] = datetime.strptime(ship['Departure'], '%Y-%m-%dT%H:%M:%S.000Z')
+    if ship['Arrival'] is not None:
+        ship['Arrival'] = datetime.strptime(ship['Arrival'], '%Y-%m-%dT%H:%M:%S.000Z')
+
+    anim_start = floor(get_keyframe_no(ship['Departure']))
+    anim_end = floor(get_keyframe_no(ship['Arrival']))
+    if ship['Name'] == 'NM Cherry Blossom':
+        anim_end = anim_end + get_one_yr_in_frames()
+    return [ship['Name'], anim_start, anim_end, ship['Departure'], ship['Arrival']]
+
+# import csv
+# rows = [get_row(ship) for ship in SHIPS]
+# with open('/home/lachie/Dropbox (Brown)/blender/blender-scripts/map.csv', 'w') as f:
+#     write = csv.writer(f)
+#     write.writerow(['Name', 'Start', 'End', 'Departure', 'Arrival'])
+#     write.writerows(rows)
+
+
 
