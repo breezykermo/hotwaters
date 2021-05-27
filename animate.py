@@ -314,10 +314,22 @@ def animate_clock():
     follow_path.up_axis = 'UP_Y'
     follow_path.use_fixed_location = True
 
+    frames_one_yr = get_one_yr_in_frames()
     follow_path.offset_factor = 0.0
     follow_path.keyframe_insert(data_path='offset_factor', frame=(FIRST_FRAME))
-    follow_path.offset_factor = 1.0
-    follow_path.keyframe_insert(data_path='offset_factor', frame=(LAST_FRAME))
+    latest_frame = None
+    for keyframe in range (FIRST_FRAME, LAST_FRAME, frames_one_yr):
+        follow_path.offset_factor = 1.0
+        follow_path.keyframe_insert(data_path='offset_factor', frame=(keyframe))
+        follow_path.offset_factor = 0.0
+        follow_path.keyframe_insert(data_path='offset_factor', frame=(keyframe + 1))
+        latest_frame = keyframe
+
+    last_frame_offset = (LAST_FRAME - latest_frame) / frames_one_yr
+    if last_frame_offset < 1.0:
+        follow_path.offset_factor = last_frame_offset
+        follow_path.keyframe_insert(data_path='offset_factor', frame=(LAST_FRAME))
+
 
     # duplicate as line
     # clock_line = anim_curve.copy()
@@ -352,11 +364,11 @@ def get_row(ship):
         anim_end = anim_end + get_one_yr_in_frames()
     return [ship['Name'], anim_start, anim_end, ship['Departure'], ship['Arrival']]
 
-import csv
-rows = [get_row(ship) for ship in SHIPS]
-with open('/home/lachie/Dropbox (Brown)/blender/blender-scripts/map.csv', 'w') as f:
-    write = csv.writer(f)
-    write.writerow(['Name', 'Start', 'End', 'Departure', 'Arrival'])
-    write.writerows(rows)
+# import csv
+# rows = [get_row(ship) for ship in SHIPS]
+# with open('/home/lachie/Dropbox (Brown)/blender/blender-scripts/map.csv', 'w') as f:
+#     write = csv.writer(f)
+#     write.writerow(['Name', 'Start', 'End', 'Departure', 'Arrival'])
+#     write.writerows(rows)
 
 
