@@ -302,7 +302,7 @@ def animate_clock():
     ops.object.mode_set(mode='OBJECT')
 
     panel = get_object('ClockPanel_datetext')
-    panel.scale = (3,3,3)
+    panel.scale = (1,1,1)
     clock_mat = WHITE_MAT.copy()
     keyframe_color(clock_mat, date_color, 0)
     assign_material(clock_mat, panel)
@@ -341,29 +341,22 @@ def update_clock(self):
 
 bpy.app.handlers.frame_change_post.append(update_clock)
 
-automate animations
 animate_ships()
 animate_clock()
 
 
 def get_row(ship):
-    if ship['Departure'] is not None:
-        ship['Departure'] = datetime.strptime(ship['Departure'], '%Y-%m-%dT%H:%M:%S.000Z')
-    if ship['Arrival'] is not None:
-        ship['Arrival'] = datetime.strptime(ship['Arrival'], '%Y-%m-%dT%H:%M:%S.000Z')
-
     anim_start = floor(get_keyframe_no(ship['Departure']))
     anim_end = floor(get_keyframe_no(ship['Arrival']))
     if ship['Name'] == 'NM Cherry Blossom':
         anim_end = anim_end + get_one_yr_in_frames()
     return [ship['Name'], anim_start, anim_end, ship['Departure'], ship['Arrival']]
 
-# import csv
-# rows = [get_row(ship) for ship in SHIPS]
-# with open('/home/lachie/Dropbox (Brown)/blender/blender-scripts/map.csv', 'w') as f:
-#     write = csv.writer(f)
-#     write.writerow(['Name', 'Start', 'End', 'Departure', 'Arrival'])
-#     write.writerows(rows)
-
+import csv
+rows = [get_row(ship) for ship in SHIPS]
+with open('/home/lachie/Dropbox (Brown)/blender/blender-scripts/map.csv', 'w') as f:
+    write = csv.writer(f)
+    write.writerow(['Name', 'Start', 'End', 'Departure', 'Arrival'])
+    write.writerows(rows)
 
 
